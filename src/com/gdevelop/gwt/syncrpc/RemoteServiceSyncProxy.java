@@ -23,7 +23,6 @@ import com.google.gwt.user.client.rpc.SerializationStreamFactory;
 import com.google.gwt.user.client.rpc.StatusCodeException;
 import com.google.gwt.user.client.rpc.impl.RequestCallbackAdapter;
 import com.google.gwt.user.server.rpc.SerializationPolicy;
-import com.google.gwt.user.server.rpc.SerializationPolicyLoader;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
