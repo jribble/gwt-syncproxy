@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import java.net.HttpURLConnection;
+import java.net.URISyntaxException;
 import java.net.URL;
 
 import java.util.HashMap;
@@ -19,6 +19,10 @@ import java.util.StringTokenizer;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 
 public class RpcPolicyFinder {
@@ -95,7 +99,7 @@ public class RpcPolicyFinder {
     return result;
   }
   
-  public static Map<String, String> fetchSerializationPolicyName(String moduleBaseURL) throws IOException{
+  public static Map<String, String> fetchSerializationPolicyName(String moduleBaseURL) throws IOException, URISyntaxException{
     Map<String, String> result = new HashMap<String, String>();
     
     moduleBaseURL = moduleBaseURL.trim(); //remove outer trim just in case
@@ -140,16 +144,13 @@ public class RpcPolicyFinder {
     return result;
   }
 
-  private static String getResposeText(String myurl) throws IOException {
+  private static String getResposeText(String myurl) throws IOException, URISyntaxException {
     URL url = new URL(myurl);
-    HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-    connection.setDoInput(true);
-    connection.setDoOutput(true);
-    connection.setInstanceFollowRedirects(true); //follow redirect
-    connection.setRequestMethod("GET");
-    connection.connect();
+    DefaultHttpClient client = new DefaultHttpClient ( );
+    HttpGet httpGet = new HttpGet ( url.toURI ( ) );
+    HttpResponse response = client.execute ( httpGet );
     
-    InputStream is = connection.getInputStream();
+    InputStream is = response.getEntity ( ).getContent ( );
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     byte[] buffer = new byte[1024];
     int len;

@@ -32,6 +32,8 @@ import java.net.CookieManager;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.http.client.CookieStore;
+
 
 public class RemoteServiceInvocationHandler implements InvocationHandler{
   private static final Map<Class, ResponseReader> JPRIMITIVETYPE_TO_RESPONSEREADER = 
@@ -61,24 +63,24 @@ public class RemoteServiceInvocationHandler implements InvocationHandler{
   private String moduleBaseURL;
   private String remoteServiceRelativePath;
   private String serializationPolicyName;
-  private CookieManager cookieManager;
+  private CookieStore cookieStore;
   private boolean waitForInvocation;
 
   public RemoteServiceInvocationHandler(String moduleBaseURL, 
                                         String remoteServiceRelativePath, 
                                         String serializationPolicyName, 
-                                        CookieManager cookieManager){
-    this(moduleBaseURL, remoteServiceRelativePath, serializationPolicyName, cookieManager, false);
+                                        CookieStore cookieStore){
+    this(moduleBaseURL, remoteServiceRelativePath, serializationPolicyName, cookieStore, false);
   }
   public RemoteServiceInvocationHandler(String moduleBaseURL, 
                                         String remoteServiceRelativePath, 
                                         String serializationPolicyName, 
-                                        CookieManager cookieManager,
+                                        CookieStore cookieStore,
                                         boolean waitForInvocation){
     this.moduleBaseURL = moduleBaseURL;
     this.remoteServiceRelativePath = remoteServiceRelativePath;
     this.serializationPolicyName = serializationPolicyName;
-    this.cookieManager = cookieManager;
+    this.cookieStore = cookieStore;
     this.waitForInvocation = waitForInvocation;
   }
   
@@ -87,7 +89,7 @@ public class RemoteServiceInvocationHandler implements InvocationHandler{
       RemoteServiceSyncProxy(moduleBaseURL, 
                              remoteServiceRelativePath, 
                              serializationPolicyName, 
-                             cookieManager);
+                             cookieStore);
     Class remoteServiceInft = method.getDeclaringClass();
     for (Class intf : proxy.getClass().getInterfaces()){
       if (RemoteService.class.isAssignableFrom(intf)){

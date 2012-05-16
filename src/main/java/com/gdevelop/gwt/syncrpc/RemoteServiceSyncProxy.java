@@ -16,6 +16,20 @@
 package com.gdevelop.gwt.syncrpc;
 
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.CookieStore;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.rpc.InvocationException;
 import com.google.gwt.user.client.rpc.RpcRequestBuilder;
@@ -24,17 +38,6 @@ import com.google.gwt.user.client.rpc.SerializationStreamFactory;
 import com.google.gwt.user.client.rpc.StatusCodeException;
 import com.google.gwt.user.client.rpc.impl.RequestCallbackAdapter;
 import com.google.gwt.user.server.rpc.SerializationPolicy;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 
 /**
@@ -62,16 +65,16 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
   private String remoteServiceURL;
   private String serializationPolicyName;
   private SerializationPolicy serializationPolicy;
-  private CookieManager cookieManager;
+  private CookieStore cookieStore;
   
   public RemoteServiceSyncProxy(String moduleBaseURL, 
                                 String remoteServiceRelativePath, 
                                 String serializationPolicyName, 
-                                CookieManager cookieManager) {
+                                CookieStore cookieStore) {
     this.moduleBaseURL = moduleBaseURL;
     this.remoteServiceURL = moduleBaseURL + remoteServiceRelativePath;
     this.serializationPolicyName = serializationPolicyName;
-    this.cookieManager = cookieManager;
+    this.cookieStore = cookieStore;
 
     if (serializationPolicyName == null){
       serializationPolicy = new DummySerializationPolicy();
@@ -121,7 +124,7 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
   
   public Object doInvoke(RequestCallbackAdapter.ResponseReader responseReader, 
       String requestData, AsyncCallback<Long> responseReadCallback) throws Throwable{
-    HttpURLConnection connection = null;
+     HttpResponse response = null;
     InputStream is = null;
     int statusCode;
     
@@ -131,34 +134,27 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
     }
     
     // Send request
-    CookieHandler oldCookieHandler = CookieHandler.getDefault();
     try {
-      CookieHandler.setDefault(cookieManager);
       
       URL url = new URL(remoteServiceURL);
-      connection = (HttpURLConnection)url.openConnection();
-      connection.setDoInput(true);
-      connection.setDoOutput(true);
-      connection.setRequestMethod("POST");
-      connection.setRequestProperty(RpcRequestBuilder.STRONG_NAME_HEADER, serializationPolicyName);
-      connection.setRequestProperty(RpcRequestBuilder.MODULE_BASE_HEADER, moduleBaseURL);
-      connection.setRequestProperty("Content-Type", "text/x-gwt-rpc; charset=utf-8");
-      connection.setRequestProperty("Content-Length", "" + requestData.getBytes("UTF-8").length);
-      
-      OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-      writer.write(requestData);
-      writer.flush();
-      writer.close();
+      DefaultHttpClient client = new DefaultHttpClient ( );
+      client.setCookieStore ( cookieStore );
+      HttpPost httpPost = new HttpPost ( url.toURI ( ) );
+      httpPost.setHeader(RpcRequestBuilder.STRONG_NAME_HEADER, serializationPolicyName);
+      httpPost.setHeader(RpcRequestBuilder.MODULE_BASE_HEADER, moduleBaseURL);
+      httpPost.setHeader("Content-Type", "text/x-gwt-rpc; charset=utf-8");
+      httpPost.setEntity ( new StringEntity ( requestData ) );
+      response = client.execute ( httpPost );
     } catch (IOException e) {
       throw new InvocationException("IOException while sending RPC request", e);
     }finally{
-      CookieHandler.setDefault(oldCookieHandler);
     }
     
     // Receive and process response
     try{
-      statusCode = connection.getResponseCode();
-      is = connection.getInputStream();
+      statusCode = response.getStatusLine ( ).getStatusCode ( );
+      HttpEntity responseEntity = response.getEntity ( );
+      is = responseEntity.getContent ( );
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       byte[] buffer = new byte[1024];
       int len;
@@ -173,7 +169,7 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
       }
       
       // System.out.println("Response payload (len = " + encodedResponse.length() + "): " + encodedResponse);
-      if (statusCode != HttpURLConnection.HTTP_OK) {
+      if (statusCode != HttpStatus.SC_OK) {
         throw new StatusCodeException(statusCode, encodedResponse);
       } else if (encodedResponse == null) {
         // This can happen if the XHR is interrupted by the server dying
@@ -197,9 +193,6 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
         try{
           is.close();
         }catch(IOException ignore){}
-      }
-      if (connection != null){
-        // connection.disconnect();
       }
     }
   }

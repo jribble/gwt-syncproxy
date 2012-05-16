@@ -1,20 +1,23 @@
 package com.gdevelop.gwt.syncrpc;
 
 
-import com.google.gdata.client.GoogleAuthTokenFactory;
-import com.google.gdata.util.AuthenticationException;
-import com.google.gwt.user.client.rpc.StatusCodeException;
-
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.CookiePolicy;
-import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.CookieStore;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicCookieStore;
+import org.apache.http.impl.client.DefaultHttpClient;
+
+import com.google.gdata.client.GoogleAuthTokenFactory;
+import com.google.gdata.util.AuthenticationException;
+import com.google.gwt.user.client.rpc.StatusCodeException;
 
 
 public class LoginUtils {
@@ -30,20 +33,18 @@ public class LoginUtils {
    * @return The CookieManager for subsequence call
    * @throws IOException
    * @throws AuthenticationException
+ * @throws URISyntaxException 
    */
-  public static CookieManager loginAppEngine(String loginUrl, String serviceUrl, 
+  public static CookieStore loginAppEngine(String loginUrl, String serviceUrl, 
                                     String email, String password) throws IOException,
-                                                            AuthenticationException {
+                                                            AuthenticationException, URISyntaxException {
     boolean localDevMode = false;
     
     if (loginUrl.startsWith("http://localhost")){
       localDevMode = true;
     }
     
-    CookieHandler oldCookieHandler = CookieHandler.getDefault();
-    try{
-      CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
-      CookieHandler.setDefault(cookieManager);
+       CookieStore cookieStore = new BasicCookieStore ( );
       
       if (localDevMode) {
         loginUrl += "/_ah/login";
@@ -51,25 +52,20 @@ public class LoginUtils {
         email = URLEncoder.encode(email, "UTF-8");
         serviceUrl = URLEncoder.encode(serviceUrl, "UTF-8");
         String requestData = "email=" + email + "&continue=" + serviceUrl;
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setDoInput(true);
-        connection.setDoOutput(true);
-        connection.setInstanceFollowRedirects(false);
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-        connection.setRequestProperty("Content-Length", "" + requestData.length());
+        DefaultHttpClient client = new DefaultHttpClient ( );
+        client.setCookieStore ( cookieStore );
+        HttpPost httpPost = new HttpPost ( url.toURI ( ) );
+        httpPost.setHeader ( "Content-Type", "application/x-www-form-urlencoded");
+        httpPost.setEntity ( new StringEntity ( requestData ) );
+        HttpResponse response = client.execute ( httpPost );
         
-        OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-        writer.write(requestData);
-        writer.flush();
-        writer.close();
-        
-        int statusCode = connection.getResponseCode();
-        if ((statusCode != HttpURLConnection.HTTP_OK)
-            && (statusCode != HttpURLConnection.HTTP_MOVED_TEMP)) {
-          String responseText = Utils.getResposeText(connection);
+        int statusCode = response.getStatusLine ( ).getStatusCode ( );
+        if ((statusCode != HttpStatus.SC_OK)
+            && (statusCode != HttpStatus.SC_MOVED_TEMPORARILY)) {
+          String responseText = response.getStatusLine ( ).getReasonPhrase ( );
           throw new StatusCodeException(statusCode, responseText);
         }
+        response.getEntity ( ).consumeContent ( );
       }else{
         GoogleAuthTokenFactory factory = new GoogleAuthTokenFactory(GAE_SERVICE_NAME, "", null);
         // Obtain authentication token from Google Accounts
@@ -77,45 +73,43 @@ public class LoginUtils {
         loginUrl = loginUrl + "/_ah/login?continue=" + URLEncoder.encode(serviceUrl, "UTF-8")
             + "&auth=" + token;
         URL url = new URL(loginUrl);
+   
+        DefaultHttpClient client = new DefaultHttpClient ( );
+        client.setCookieStore ( cookieStore );
+        HttpGet httpGet = new HttpGet ( url.toURI ( ) );
+        HttpResponse response = client.execute ( httpGet );
         
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setDoInput(true);
-        connection.setDoOutput(true);
-        connection.setInstanceFollowRedirects(false);
-        connection.setRequestMethod("GET");
-        connection.connect();
-        
-        int statusCode = connection.getResponseCode();
-        if ((statusCode != HttpURLConnection.HTTP_OK)
-            && (statusCode != HttpURLConnection.HTTP_MOVED_TEMP)) {
-          String responseText = Utils.getResposeText(connection);
+        int statusCode = response.getStatusLine ( ).getStatusCode ( );
+        if ((statusCode != HttpStatus.SC_OK)
+                 && (statusCode != HttpStatus.SC_MOVED_TEMPORARILY)) {
+          String responseText = response.getStatusLine ( ).getReasonPhrase ( );
           throw new StatusCodeException(statusCode, responseText);
         }
+        response.getEntity ( ).consumeContent ( );
       }
       
-      return cookieManager;
-    }finally{
-      CookieHandler.setDefault(oldCookieHandler);
-    }
+      return cookieStore;
   }
 
-  public static CookieManager loginFormBasedJ2EE(String loginUrl, String username, 
-                                             String password) throws IOException,
-                                                                         URISyntaxException {
-    CookieHandler oldCookieHandler = CookieHandler.getDefault();
-    try{
-      CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
-      CookieHandler.setDefault(cookieManager);
+  public static CookieStore loginFormBasedJ2EE(String loginUrl, String username, 
+                                             String password) throws IOException, URISyntaxException
+  {              
+      CookieStore cookieStore = new BasicCookieStore ( );
       
       // GET the form
       URL url = new URL(loginUrl);
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-      int statusCode = connection.getResponseCode();
-      if ((statusCode != HttpURLConnection.HTTP_OK)
-          && (statusCode != HttpURLConnection.HTTP_MOVED_TEMP)) {
-        String responseText = Utils.getResposeText(connection);
+      DefaultHttpClient client = new DefaultHttpClient ( );
+      client.setCookieStore ( cookieStore );
+      HttpGet httpGet = new HttpGet ( url.toURI ( ) );
+      HttpResponse response = client.execute ( httpGet );
+      
+      int statusCode = response.getStatusLine ( ).getStatusCode ( );
+      if ((statusCode != HttpStatus.SC_OK)
+               && (statusCode != HttpStatus.SC_MOVED_TEMPORARILY)) {
+        String responseText = response.getStatusLine ( ).getReasonPhrase ( );
         throw new StatusCodeException(statusCode, responseText);
       }
+      response.getEntity ( ).consumeContent ( );
       
       // Perform login
       loginUrl += "j_security_check";
@@ -123,30 +117,20 @@ public class LoginUtils {
       username = URLEncoder.encode(username, "UTF-8");
       password = URLEncoder.encode(password, "UTF-8");
       String requestData = "j_username=" + username + "&j_password=" + password;
-      connection = (HttpURLConnection) url.openConnection();
-      connection.setDoInput(true);
-      connection.setDoOutput(true);
-      connection.setInstanceFollowRedirects(true);
-      connection.setRequestMethod("POST");
-      connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-      connection.setRequestProperty("Content-Length", "" + requestData.length());
-      connection.connect();
+
+      HttpPost httpPost = new HttpPost ( url.toURI ( ) );
+      httpPost.setHeader ( "Content-Type", "application/x-www-form-urlencoded");
+      httpPost.setEntity ( new StringEntity ( requestData ) );
+      response = client.execute ( httpPost );
       
-      OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-      writer.write(requestData);
-      writer.flush();
-      writer.close();
-      
-      statusCode = connection.getResponseCode();
-      if ((statusCode != HttpURLConnection.HTTP_OK)
-          && (statusCode != HttpURLConnection.HTTP_MOVED_TEMP)) {
-        String responseText = Utils.getResposeText(connection);
+      statusCode = response.getStatusLine ( ).getStatusCode ( );
+      if ((statusCode != HttpStatus.SC_OK)
+               && (statusCode != HttpStatus.SC_MOVED_TEMPORARILY)) {
+        String responseText = response.getStatusLine ( ).getReasonPhrase ( );
         throw new StatusCodeException(statusCode, responseText);
       }
+      response.getEntity ( ).consumeContent ( );
 
-      return cookieManager;
-    }finally{
-      CookieHandler.setDefault(oldCookieHandler);
-    }
+      return cookieStore;
   }
 }

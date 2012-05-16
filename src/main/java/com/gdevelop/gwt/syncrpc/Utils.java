@@ -5,7 +5,7 @@ import java.io.IOException;
 
 import java.io.InputStream;
 
-import java.net.HttpURLConnection;
+import org.apache.http.HttpResponse;
 
 public class Utils {
   /**
@@ -94,8 +94,8 @@ public class Utils {
     return haveNonZero;
   }
 
-  public static String getResposeText(HttpURLConnection connection) throws IOException {
-    InputStream is = connection.getInputStream();
+  public static String getResposeText(HttpResponse response) throws IOException {
+    InputStream is = response.getEntity ( ).getContent();
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     byte[] buffer = new byte[1024];
     int len;
