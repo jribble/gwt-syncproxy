@@ -97,6 +97,7 @@ public class RemoteServiceInvocationHandler implements InvocationHandler{
     
     SerializationStreamWriter streamWriter = syncProxy.createStreamWriter();
 
+    AsyncCallback responseReadCallback = SyncProxy.getResponseReadCallback ( );
     AsyncCallback callback = null;
     Class[] paramTypes = method.getParameterTypes();
     try{
@@ -154,11 +155,12 @@ public class RemoteServiceInvocationHandler implements InvocationHandler{
         final Class returnType_2 = returnType;
         final String payload_2 = payload;
         final AsyncCallback callback_2 = callback;
+        final AsyncCallback<Long> responseReadCallback_2 = responseReadCallback;
         Thread thread = new Thread(){
           public void run(){
             Object result;
             try {
-              result = syncProxy_2.doInvoke(getReaderFor(returnType_2), payload_2);
+              result = syncProxy_2.doInvoke(getReaderFor(returnType_2), payload_2, responseReadCallback_2);
               if (callback_2 != null){
                 callback_2.onSuccess(result);
               }
@@ -176,7 +178,7 @@ public class RemoteServiceInvocationHandler implements InvocationHandler{
         }
         return null;
       }else{
-        return syncProxy.doInvoke(getReaderFor(returnType), payload);
+        return syncProxy.doInvoke(getReaderFor(returnType), payload, responseReadCallback);
       }
       /*
       Object result = syncProxy.doInvoke(getReaderFor(returnType), payload);

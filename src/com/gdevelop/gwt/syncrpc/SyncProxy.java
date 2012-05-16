@@ -16,6 +16,7 @@
 package com.gdevelop.gwt.syncrpc;
 
 
+import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
 
 import java.io.IOException;
@@ -59,6 +60,8 @@ public class SyncProxy {
   
   private static final CookieManager DEFAULT_COOKIE_MANAGER 
     = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+  
+  private static ThreadLocal < AsyncCallback<Long> > responseReadCallback = new ThreadLocal<AsyncCallback<Long>>();
   
   /**
   * Create a new Proxy for the specified <code>serviceIntf</code>
@@ -191,5 +194,27 @@ public class SyncProxy {
                                         boolean waitForInvocation){
     return newProxyInstance(serviceIntf, moduleBaseURL, 
                             DEFAULT_COOKIE_MANAGER, waitForInvocation);
+  }
+  
+  /**
+   * The response read callback is called after a method is called and the response has been read from
+   * the server, but before the response has been deserialized.  The Long parameter is the number of bytes
+   * in the response.
+   * This callback is useful for to time the call and response of a RPC method without including deserialization time.
+   * @param callback
+   */
+  public static void setResponseReadCallback ( AsyncCallback<Long> callback ) {
+     responseReadCallback.set ( callback );
+  }
+
+  /**
+   * The response read callback is called after a method is called and the response has been read from
+   * the server, but before the response has been deserialized.  The Long parameter is the number of bytes
+   * in the response.
+   * This callback is useful for to time the call and response of a RPC method without including deserialization time.
+   * @param callback
+   */
+  public static AsyncCallback<Long> getResponseReadCallback ( ) {
+     return responseReadCallback.get ( );
   }
 }

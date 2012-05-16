@@ -16,6 +16,7 @@
 package com.gdevelop.gwt.syncrpc;
 
 
+import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.rpc.InvocationException;
 import com.google.gwt.user.client.rpc.RpcRequestBuilder;
 import com.google.gwt.user.client.rpc.SerializationException;
@@ -119,7 +120,7 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
   }
   
   public Object doInvoke(RequestCallbackAdapter.ResponseReader responseReader, 
-      String requestData) throws Throwable{
+      String requestData, AsyncCallback<Long> responseReadCallback) throws Throwable{
     HttpURLConnection connection = null;
     InputStream is = null;
     int statusCode;
@@ -164,6 +165,7 @@ public class RemoteServiceSyncProxy implements SerializationStreamFactory{
       while ((len = is.read(buffer)) > 0){
         baos.write(buffer, 0, len);
       }
+      if ( responseReadCallback != null ) responseReadCallback.onSuccess ( new Long ( baos.size ( ) ) );
       String encodedResponse = baos.toString("UTF8");
       if (DUMP_PAYLOAD){
         System.out.println("Response code: " + statusCode);
